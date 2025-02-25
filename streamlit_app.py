@@ -120,4 +120,4 @@ if not st.session_state.monitoring and st.session_state.start_time:
         # Calculate statistics
         avg_hr = np.mean(st.session_state.hr_data)
         avg_rr = np.mean(st.session_state.rr_data)
-        max_hr = np.max(st.session)
+        max_hr = np.max(st.session_state.hr_data)
