@@ -4,6 +4,8 @@ import torch.nn as nn
 import streamlit as st
 import time
 import matplotlib.pyplot as plt
+import pandas as pd
+from datetime import datetime, timedelta
 
 # =============================
 # 1. AI Model for Health Monitoring (LSTM-Based)
@@ -23,24 +25,28 @@ class HealthMonitorAI(nn.Module):
 # 2. Streamlit Dashboard
 # =============================
 st.title("🛏️ AI-Powered Smart Pillow Health Monitor")
+st.write("### 📊 Real-Time Sleep & Blood Pressure Monitoring")
 
-st.write("### 📊 Real-Time Health Data Monitoring")
-
-# **Initialize session state variables for real-time updates**
-if "heart_rate" not in st.session_state:
-    st.session_state.heart_rate = 75
-if "respiratory_rate" not in st.session_state:
-    st.session_state.respiratory_rate = 15
+# **Initialize session state variables**
+if "start_time" not in st.session_state:
+    st.session_state.start_time = datetime.now()
 if "hr_data" not in st.session_state:
     st.session_state.hr_data = []
 if "rr_data" not in st.session_state:
     st.session_state.rr_data = []
 if "timestamps" not in st.session_state:
     st.session_state.timestamps = []
+if "alerts" not in st.session_state:
+    st.session_state.alerts = []
 
-# **Start real-time simulation button**
-if st.button("🚀 Start Real-Time Monitoring"):
+# **Start button**
+if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.monitoring = True
+    st.session_state.start_time = datetime.now()
+    st.session_state.hr_data = []
+    st.session_state.rr_data = []
+    st.session_state.timestamps = []
+    st.session_state.alerts = []
 
 if st.button("⏹️ Stop Monitoring"):
     st.session_state.monitoring = False
@@ -48,15 +54,21 @@ if st.button("⏹️ Stop Monitoring"):
 # **Real-time Chart Area**
 chart_placeholder = st.empty()
 alert_placeholder = st.empty()
+report_placeholder = st.empty()
 
-# **Loop for Real-Time Updates**
+# **Loop for Real-Time Updates (Simulating 8 Hours Fast-Forward)**
 while st.session_state.get("monitoring", False):
-    # Simulate real-time data updates
-    new_hr = st.session_state.heart_rate + np.random.randint(-3, 3)
-    new_rr = st.session_state.respiratory_rate + np.random.randint(-1, 2)
-    
-    # Store only the last 50 data points (moving window)
-    if len(st.session_state.hr_data) > 50:
+    elapsed_time = datetime.now() - st.session_state.start_time
+    if elapsed_time.total_seconds() >= 8 * 3600:  # Stop after 8 hours
+        st.session_state.monitoring = False
+        break
+
+    # Simulate real-time heart rate & respiratory rate
+    new_hr = np.random.randint(60, 100)
+    new_rr = np.random.randint(10, 20)
+
+    # Store only the last 60 minutes of data (moving window)
+    if len(st.session_state.hr_data) > 300:
         st.session_state.hr_data.pop(0)
         st.session_state.rr_data.pop(0)
         st.session_state.timestamps.pop(0)
@@ -64,14 +76,15 @@ while st.session_state.get("monitoring", False):
     # Append new data
     st.session_state.hr_data.append(new_hr)
     st.session_state.rr_data.append(new_rr)
-    st.session_state.timestamps.append(time.time())
+    st.session_state.timestamps.append(datetime.now())
 
-    # **Plot live data**
-    fig, ax = plt.subplots()
-    ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red")
-    ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue")
+    # **Plot real-time data**
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
+    ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
     ax.set_xlabel("Time")
     ax.set_ylabel("Values")
+    ax.set_xlim([st.session_state.timestamps[0], datetime.now()])  # Keep moving window
     ax.legend()
     ax.grid()
 
@@ -79,12 +92,45 @@ while st.session_state.get("monitoring", False):
     chart_placeholder.pyplot(fig)
 
     # **AI Health Alerts**
+    alert_msg = None
     if new_hr > 90:
-        alert_placeholder.error("⚠️ High Blood Pressure Detected! Consult a doctor.")
+        alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
     elif new_rr < 10:
-        alert_placeholder.warning("⚠️ Possible Sleep Apnea Detected! Consider medical evaluation.")
+        alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
+    
+    if alert_msg:
+        st.session_state.alerts.append((datetime.now(), alert_msg))
+        alert_placeholder.error(alert_msg)
     else:
-        alert_placeholder.success("✅ Normal Cardiovascular & Respiratory Health")
+        alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
 
-    # **Wait for next update (1 second)**
-    time.sleep(1)
+    # **Simulate real-time update (fast-forward for testing)**
+    time.sleep(0.5)
+
+# =============================
+# 3. Sleep Report Summary (After 8 Hours)
+# =============================
+if not st.session_state.get("monitoring", True):
+    if st.session_state.hr_data:
+        # Calculate statistics
+        avg_hr = np.mean(st.session_state.hr_data)
+        avg_rr = np.mean(st.session_state.rr_data)
+        max_hr = np.max(st.session_state.hr_data)
+        min_hr = np.min(st.session_state.hr_data)
+        max_rr = np.max(st.session_state.rr_data)
+        min_rr = np.min(st.session_state.rr_data)
+
+        # Create DataFrame for Alerts
+        alert_df = pd.DataFrame(st.session_state.alerts, columns=["Time", "Alert"])
+
+        # Display summary
+        report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
+        report_placeholder.write(f"**📅 Sleep Duration:** {elapsed_time}")
+        report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
+        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min (Min: {min_rr} | Max: {max_rr})")
+        
+        if not alert_df.empty:
+            report_placeholder.write("### 🚨 Health Alerts During Sleep:")
+            report_placeholder.dataframe(alert_df)
+
+        st.success("✅ Sleep monitoring completed! Summary report generated.")
