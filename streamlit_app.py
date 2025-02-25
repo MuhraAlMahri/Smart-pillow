@@ -110,18 +110,29 @@ while st.session_state.monitoring:
     chart_placeholder.pyplot(fig)
 
     # **Plot Sleep Stage Graph**
-    stage_colors = {"Awake": "red", "Light Sleep": "orange", "Deep Sleep": "blue", "REM Sleep": "purple"}
-    valid_sleep_stages = [s if s in stage_colors else "Awake" for s in st.session_state.sleep_stages]
-    sleep_stage_values = [list(stage_colors.keys()).index(stage) for stage in valid_sleep_stages]
+    # **Plot Sleep Stage Graph (Fixed)**
+stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
+stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
 
-    fig2, ax2 = plt.subplots(figsize=(8, 4))
-    ax2.scatter(st.session_state.timestamps, sleep_stage_values, c=[stage_colors[s] for s in valid_sleep_stages], label="Sleep Stage", s=20)
-    ax2.set_yticks(range(len(stage_colors)))
-    ax2.set_yticklabels(stage_colors.keys())
-    ax2.set_xlabel("Time")
-    ax2.set_ylabel("Sleep Stage")
-    ax2.grid()
-    sleep_stage_placeholder.pyplot(fig2)
+# Convert sleep stages to numeric values
+sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
+
+# **Fix Sleep Stage Line Plot**
+fig2, ax2 = plt.subplots(figsize=(10, 4))
+ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
+
+# Color background by sleep stage
+for stage, value in stage_order.items():
+    ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
+
+ax2.set_yticks(list(stage_order.values()))
+ax2.set_yticklabels(list(stage_order.keys()))
+ax2.set_xlabel("Time")
+ax2.set_ylabel("Sleep Stage")
+ax2.legend()
+ax2.grid()
+
+sleep_stage_placeholder.pyplot(fig2)
 
     # **Health Alerts**
     alert_msg = None
