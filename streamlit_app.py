@@ -49,12 +49,12 @@ if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.rr_data = []
     st.session_state.timestamps = []
     st.session_state.alerts = []
-    st.experimental_rerun()  # Forces app to refresh
+    st.rerun()  # Forces app to refresh
 
 # **Stop Monitoring Button**
 if st.button("⏹️ Stop Monitoring"):
     st.session_state.monitoring = False
-    st.experimental_rerun()  # Refresh to display final report
+    st.rerun()  # Refresh to display final report
 
 # **Real-Time Chart & Alerts**
 chart_placeholder = st.empty()
@@ -112,12 +112,12 @@ if st.session_state.monitoring:
 
         # **Wait 1 second before rerunning**
         time.sleep(1)
-        st.experimental_rerun()
+        st.rerun()
 
     else:
         # **Stop Monitoring after 8 Hours**
         st.session_state.monitoring = False
-        st.experimental_rerun()
+        st.rerun()
 
 # =============================
 # 4. Sleep Report Summary (After 8 Hours)
