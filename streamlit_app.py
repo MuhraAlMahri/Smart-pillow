@@ -110,7 +110,7 @@ while st.session_state.monitoring:
     chart_placeholder.pyplot(fig)
 
     # **Plot Sleep Stage Graph**
-    stage_colors = {"Awake": "red", "Light Sleep": "yellow", "Deep Sleep": "blue", "REM Sleep": "purple"}
+    stage_colors = {"Awake": "red", "Light Sleep": "orange", "Deep Sleep": "blue", "REM Sleep": "purple"}
     valid_sleep_stages = [s if s in stage_colors else "Awake" for s in st.session_state.sleep_stages]
     sleep_stage_values = [list(stage_colors.keys()).index(stage) for stage in valid_sleep_stages]
 
