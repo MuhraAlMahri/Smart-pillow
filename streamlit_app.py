@@ -158,19 +158,31 @@ while st.session_state.monitoring:
 # =============================
 if not st.session_state.monitoring and st.session_state.start_time:
     if st.session_state.hr_data:
-        elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds() / 3600
+        elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds() / 3600  # Convert to hours
         avg_hr = np.mean(st.session_state.hr_data)
-        avg_rr = np.mean(st.session_state.rr_data)
-        max_hr = np.max(st.session_state.hr_data)
         min_hr = np.min(st.session_state.hr_data)
-        sleep_stage_counts = pd.Series(st.session_state.sleep_stages).value_counts()
+        max_hr = np.max(st.session_state.hr_data)
+        hr_variability = np.std(st.session_state.hr_data)  # Heart Rate Variability
+
+        avg_rr = np.mean(st.session_state.rr_data)
+        min_rr = np.min(st.session_state.rr_data)
+        max_rr = np.max(st.session_state.rr_data)
+
+        sleep_stage_counts = pd.Series(st.session_state.sleep_stages).value_counts(normalize=True) * 100  # Percentage
 
         # Display summary
         report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
         report_placeholder.write(f"**📅 Sleep Duration:** {elapsed_time:.2f} hours")
         report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
-        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min")
-        report_placeholder.write("### 🛏️ Sleep Stages Summary:")
+        report_placeholder.write(f"**📊 Heart Rate Variability (HRV):** {hr_variability:.2f}")
+        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min (Min: {min_rr} | Max: {max_rr})")
+        report_placeholder.write("### 🛏️ Sleep Stages Breakdown:")
         report_placeholder.write(sleep_stage_counts.to_string())
+
+        # Show health alerts if any
+        if st.session_state.alerts:
+            alert_df = pd.DataFrame(st.session_state.alerts, columns=["Time", "Alert"])
+            report_placeholder.write("### 🚨 Health Alerts During Sleep:")
+            report_placeholder.dataframe(alert_df)
 
         st.success("✅ Sleep monitoring completed! Summary report generated.")
