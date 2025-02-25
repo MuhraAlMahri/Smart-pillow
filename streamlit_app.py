@@ -1,6 +1,4 @@
 import numpy as np
-import torch
-import torch.nn as nn
 import streamlit as st
 import time
 import matplotlib.pyplot as plt
@@ -8,24 +6,10 @@ import pandas as pd
 from datetime import datetime
 
 # =============================
-# 1. AI Model for Health Monitoring (LSTM-Based)
-# =============================
-class HealthMonitorAI(nn.Module):
-    def __init__(self, input_size=1, hidden_size=64, output_size=3):
-        super(HealthMonitorAI, self).__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
-        self.fc = nn.Linear(hidden_size, output_size)  # Output: Normal, Apnea, High BP
-        
-    def forward(self, x):
-        lstm_out, _ = self.lstm(x)
-        output = self.fc(lstm_out[:, -1, :])
-        return output
-
-# =============================
-# 2. Streamlit Dashboard Setup
+# 1. Streamlit Dashboard Setup
 # =============================
 st.title("🛏️ AI-Powered Smart Pillow Health Monitor")
-st.write("### 📊 Real-Time Sleep & Blood Pressure Monitoring")
+st.write("### 📊 Real-Time Sleep & Blood Pressure Monitoring (Demo Mode)")
 
 # **Initialize session state variables**
 if "monitoring" not in st.session_state:
@@ -64,102 +48,102 @@ alert_placeholder = st.empty()
 report_placeholder = st.empty()
 
 # =============================
-# 3. Sleep Stage Transition Function (Improved)
+# 2. Real-Time Data Simulation (30-Second Demo)
 # =============================
-import random
+def determine_sleep_stage(hr, rr):
+    """Simulate sleep stages based on HR and RR"""
+    if hr > 90 or rr > 18:
+        return "Awake"
+    elif 70 <= hr <= 85 and 14 <= rr <= 18:
+        return "Light Sleep"
+    elif 60 <= hr < 70 and 12 <= rr < 14:
+        return "Deep Sleep"
+    elif 60 <= hr <= 85 and 14 <= rr <= 16:
+        return "REM Sleep"
+    return "Awake"  # Default to "Awake" if unknown stage
 
-def determine_sleep_stage(prev_stage):
-    """Dynamically transition sleep stages for a natural cycle"""
-    transition_probs = {
-        "Awake": ["Light Sleep", "Awake"],
-        "Light Sleep": ["Deep Sleep", "REM Sleep", "Light Sleep"],
-        "Deep Sleep": ["REM Sleep", "Light Sleep"],
-        "REM Sleep": ["Awake", "Light Sleep"]
-    }
-    transition_weights = {
-        "Awake": [0.7, 0.3],
-        "Light Sleep": [0.5, 0.2, 0.3],
-        "Deep Sleep": [0.6, 0.4],
-        "REM Sleep": [0.4, 0.6]
-    }
-    return np.random.choice(transition_probs[prev_stage], p=transition_weights[prev_stage])
+# **Run for 30 seconds instead of 8 hours**
+start_demo_time = time.time()
+while st.session_state.monitoring and (time.time() - start_demo_time) < 30:
+    # Simulated heart rate (HR) and respiratory rate (RR)
+    new_hr = np.random.randint(60, 100)
+    new_rr = np.random.randint(10, 20)
+
+    # Determine sleep stage
+    sleep_stage = determine_sleep_stage(new_hr, new_rr)
+
+    # Store only the last 60 seconds of data (moving window)
+    if len(st.session_state.hr_data) > 60:
+        st.session_state.hr_data.pop(0)
+        st.session_state.rr_data.pop(0)
+        st.session_state.timestamps.pop(0)
+        st.session_state.sleep_stages.pop(0)
+
+    # Append new data
+    st.session_state.hr_data.append(new_hr)
+    st.session_state.rr_data.append(new_rr)
+    st.session_state.timestamps.append(datetime.now())
+    st.session_state.sleep_stages.append(sleep_stage)
+
+    # **Plot Heart Rate & Respiratory Rate**
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
+    ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Values")
+    ax.legend()
+    ax.grid()
+    chart_placeholder.pyplot(fig)
+
+    # **Plot Sleep Stage Graph**
+    stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
+    stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
+
+    # Convert sleep stages to numeric values
+    sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
+
+    # **Fix Sleep Stage Line Plot**
+    fig2, ax2 = plt.subplots(figsize=(10, 4))
+    ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
+
+    # Color background by sleep stage
+    for stage, value in stage_order.items():
+        ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
+
+    ax2.set_yticks(list(stage_order.values()))
+    ax2.set_yticklabels(list(stage_order.keys()))
+    ax2.set_xlabel("Time")
+    ax2.set_ylabel("Sleep Stage")
+    ax2.legend()
+    ax2.grid()
+
+    sleep_stage_placeholder.pyplot(fig2)
+
+    # **Health Alerts**
+    alert_msg = None
+    if new_hr > 90:
+        alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
+    elif new_rr < 10:
+        alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
+
+    if alert_msg:
+        st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
+
+    # **Show latest alert**
+    if st.session_state.alerts:
+        latest_alert = st.session_state.alerts[-1]
+        alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
+    else:
+        alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
+
+    # **Simulate real-time update** (Every 1 second)
+    time.sleep(1)
+
+# Stop Monitoring after 30 seconds
+st.session_state.monitoring = False
 
 # =============================
-# 4. Real-Time Data Simulation (Fast 5-Minute Demo)
-# =============================
-if st.session_state.monitoring:
-    start_demo_time = time.time()  # Start tracking time for 5 min demo
-
-    while time.time() - start_demo_time < 300:  # Run for 5 minutes instead of 8 hours
-        # Simulated heart rate (HR) and respiratory rate (RR)
-        new_hr = np.random.randint(60, 100)
-        new_rr = np.random.randint(10, 20)
-
-        # Determine sleep stage
-        prev_stage = st.session_state.sleep_stages[-1] if st.session_state.sleep_stages else "Awake"
-        sleep_stage = determine_sleep_stage(prev_stage)
-
-        # Store only the last 60 minutes of data (moving window)
-        if len(st.session_state.hr_data) > 300:
-            st.session_state.hr_data.pop(0)
-            st.session_state.rr_data.pop(0)
-            st.session_state.timestamps.pop(0)
-            st.session_state.sleep_stages.pop(0)
-
-        # Append new data
-        st.session_state.hr_data.append(new_hr)
-        st.session_state.rr_data.append(new_rr)
-        st.session_state.timestamps.append(datetime.now())
-        st.session_state.sleep_stages.append(sleep_stage)
-
-        # **Plot Real-Time Heart Rate & RR Graph**
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
-        ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Values")
-        ax.legend()
-        ax.grid()
-        chart_placeholder.pyplot(fig)
-
-        # **Plot Sleep Stage Graph**
-        stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
-        stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
-        sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
-
-        fig2, ax2 = plt.subplots(figsize=(10, 4))
-        ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
-        for stage, value in stage_order.items():
-            ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
-        ax2.set_yticks(list(stage_order.values()))
-        ax2.set_yticklabels(list(stage_order.keys()))
-        ax2.set_xlabel("Time")
-        ax2.set_ylabel("Sleep Stage")
-        ax2.legend()
-        ax2.grid()
-        sleep_stage_placeholder.pyplot(fig2)
-
-        # **Health Alerts**
-        alert_msg = None
-        if new_hr > 90:
-            alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
-        elif new_rr < 10:
-            alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
-
-        if alert_msg:
-            st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
-            alert_placeholder.error(f"{alert_msg} (Time: {datetime.now().strftime('%H:%M:%S')})")
-        else:
-            alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
-
-        # **Simulate real-time update** (Every 1 second)
-        time.sleep(1)
-
-    # **Stop Monitoring after 5 Minutes**
-    st.session_state.monitoring = False
-
-# =============================
-# 5. Sleep Report Summary (Anytime Monitoring Stops)
+# 3. Sleep Report Summary (After 30s)
 # =============================
 if not st.session_state.monitoring and st.session_state.start_time:
     if st.session_state.hr_data:
