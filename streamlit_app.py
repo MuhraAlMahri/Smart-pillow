@@ -48,8 +48,7 @@ if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.hr_data = []
     st.session_state.rr_data = []
     st.session_state.timestamps = []
-    st.session_state.alerts = []
-    st.rerun().  # Forces app to refresh
+    st.session_state
 
 # **Stop Monitoring Button**
 if st.button("⏹️ Stop Monitoring"):
