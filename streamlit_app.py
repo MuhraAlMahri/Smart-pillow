@@ -66,17 +66,22 @@ report_placeholder = st.empty()
 # =============================
 # 3. Real-Time Data Simulation (Moving Graph)
 # =============================
-def determine_sleep_stage(hr, rr):
-    """Determine sleep stage based on HR and RR"""
-    if hr > 85 or rr > 18:
-        return "Awake"
-    elif 70 <= hr <= 85 and 14 <= rr <= 18:
+def determine_sleep_stage(last_stage, time_elapsed):
+    """Simulate realistic sleep cycle transitions based on time elapsed"""
+    if time_elapsed < 10 * 60:  # First 10 minutes: Light Sleep
         return "Light Sleep"
-    elif 60 <= hr < 70 and 12 <= rr < 14:
+    elif time_elapsed < 60 * 60:  # Next up to 60 minutes: Deep Sleep
         return "Deep Sleep"
-    elif 60 <= hr <= 85 and 14 <= rr <= 16:
+    elif time_elapsed < 90 * 60:  # After 60-90 minutes: REM Sleep
         return "REM Sleep"
-    return "Awake"  # Default to "Awake" if unknown stage
+    else:  # Cycle repeats (Light -> Deep -> REM)
+        if last_stage == "REM Sleep":
+            return "Light Sleep"
+        elif last_stage == "Light Sleep":
+            return "Deep Sleep"
+        elif last_stage == "Deep Sleep":
+            return "REM Sleep"
+        return "Awake"
 
 # **Monitoring Process**
 while st.session_state.monitoring:
