@@ -22,14 +22,16 @@ class HealthMonitorAI(nn.Module):
         return output
 
 # =============================
-# 2. Streamlit Dashboard
+# 2. Streamlit Dashboard Setup
 # =============================
 st.title("🛏️ AI-Powered Smart Pillow Health Monitor")
 st.write("### 📊 Real-Time Sleep & Blood Pressure Monitoring")
 
 # **Initialize session state variables**
+if "monitoring" not in st.session_state:
+    st.session_state.monitoring = False
 if "start_time" not in st.session_state:
-    st.session_state.start_time = datetime.now()
+    st.session_state.start_time = None
 if "hr_data" not in st.session_state:
     st.session_state.hr_data = []
 if "rr_data" not in st.session_state:
@@ -39,7 +41,7 @@ if "timestamps" not in st.session_state:
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
-# **Start button**
+# **Start Monitoring Button**
 if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.monitoring = True
     st.session_state.start_time = datetime.now()
@@ -47,70 +49,80 @@ if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.rr_data = []
     st.session_state.timestamps = []
     st.session_state.alerts = []
+    st.experimental_rerun()  # Forces app to refresh
 
+# **Stop Monitoring Button**
 if st.button("⏹️ Stop Monitoring"):
     st.session_state.monitoring = False
+    st.experimental_rerun()  # Refresh to display final report
 
-# **Real-time Chart Area**
+# **Real-Time Chart & Alerts**
 chart_placeholder = st.empty()
 alert_placeholder = st.empty()
 report_placeholder = st.empty()
 
-# **Loop for Real-Time Updates (Simulating 8 Hours Fast-Forward)**
-while st.session_state.get("monitoring", False):
-    elapsed_time = datetime.now() - st.session_state.start_time
-    if elapsed_time.total_seconds() >= 8 * 3600:  # Stop after 8 hours
-        st.session_state.monitoring = False
-        break
+# =============================
+# 3. Real-Time Data Simulation (Moving Graph)
+# =============================
+if st.session_state.monitoring:
+    elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds()
 
-    # Simulate real-time heart rate & respiratory rate
-    new_hr = np.random.randint(60, 100)
-    new_rr = np.random.randint(10, 20)
+    if elapsed_time < 8 * 3600:
+        # Simulated heart rate (HR) and respiratory rate (RR)
+        new_hr = np.random.randint(60, 100)
+        new_rr = np.random.randint(10, 20)
 
-    # Store only the last 60 minutes of data (moving window)
-    if len(st.session_state.hr_data) > 300:
-        st.session_state.hr_data.pop(0)
-        st.session_state.rr_data.pop(0)
-        st.session_state.timestamps.pop(0)
+        # Store only the last 60 minutes of data (moving window)
+        if len(st.session_state.hr_data) > 300:
+            st.session_state.hr_data.pop(0)
+            st.session_state.rr_data.pop(0)
+            st.session_state.timestamps.pop(0)
 
-    # Append new data
-    st.session_state.hr_data.append(new_hr)
-    st.session_state.rr_data.append(new_rr)
-    st.session_state.timestamps.append(datetime.now())
+        # Append new data
+        st.session_state.hr_data.append(new_hr)
+        st.session_state.rr_data.append(new_rr)
+        st.session_state.timestamps.append(datetime.now())
 
-    # **Plot real-time data**
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
-    ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Values")
-    ax.set_xlim([st.session_state.timestamps[0], datetime.now()])  # Keep moving window
-    ax.legend()
-    ax.grid()
+        # **Plot real-time graph**
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
+        ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Values")
+        ax.legend()
+        ax.grid()
+        chart_placeholder.pyplot(fig)
 
-    # **Update live chart**
-    chart_placeholder.pyplot(fig)
+        # **Health Alerts**
+        alert_msg = None
+        if new_hr > 90:
+            alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
+        elif new_rr < 10:
+            alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
 
-    # **AI Health Alerts**
-    alert_msg = None
-    if new_hr > 90:
-        alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
-    elif new_rr < 10:
-        alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
-    
-    if alert_msg:
-        st.session_state.alerts.append((datetime.now(), alert_msg))
-        alert_placeholder.error(alert_msg)
+        if alert_msg:
+            st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
+        
+        # **Show latest alert**
+        if st.session_state.alerts:
+            latest_alert = st.session_state.alerts[-1]
+            alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
+        else:
+            alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
+
+        # **Wait 1 second before rerunning**
+        time.sleep(1)
+        st.experimental_rerun()
+
     else:
-        alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
-
-    # **Simulate real-time update (fast-forward for testing)**
-    time.sleep(0.5)
+        # **Stop Monitoring after 8 Hours**
+        st.session_state.monitoring = False
+        st.experimental_rerun()
 
 # =============================
-# 3. Sleep Report Summary (After 8 Hours)
+# 4. Sleep Report Summary (After 8 Hours)
 # =============================
-if not st.session_state.get("monitoring", True):
+if not st.session_state.monitoring and st.session_state.start_time:
     if st.session_state.hr_data:
         # Calculate statistics
         avg_hr = np.mean(st.session_state.hr_data)
@@ -125,7 +137,7 @@ if not st.session_state.get("monitoring", True):
 
         # Display summary
         report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
-        report_placeholder.write(f"**📅 Sleep Duration:** {elapsed_time}")
+        report_placeholder.write(f"**📅 Sleep Duration:** 8 Hours")
         report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
         report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min (Min: {min_rr} | Max: {max_rr})")
         
