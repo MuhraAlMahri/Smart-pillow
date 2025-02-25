@@ -5,7 +5,7 @@ import streamlit as st
 import time
 import matplotlib.pyplot as plt
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # =============================
 # 1. AI Model for Health Monitoring (LSTM-Based)
@@ -38,6 +38,8 @@ if "rr_data" not in st.session_state:
     st.session_state.rr_data = []
 if "timestamps" not in st.session_state:
     st.session_state.timestamps = []
+if "sleep_stages" not in st.session_state:
+    st.session_state.sleep_stages = []
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
@@ -48,6 +50,7 @@ if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.hr_data = []
     st.session_state.rr_data = []
     st.session_state.timestamps = []
+    st.session_state.sleep_stages = []
     st.session_state.alerts = []
 
 # **Stop Monitoring Button**
@@ -56,30 +59,48 @@ if st.button("⏹️ Stop Monitoring"):
 
 # **Real-Time Chart & Alerts**
 chart_placeholder = st.empty()
+sleep_stage_placeholder = st.empty()
 alert_placeholder = st.empty()
 report_placeholder = st.empty()
 
 # =============================
 # 3. Real-Time Data Simulation (Moving Graph)
 # =============================
+def determine_sleep_stage(hr, rr):
+    """Determine sleep stage based on HR and RR"""
+    if hr > 85 or rr > 18:
+        return "Awake"
+    elif 70 <= hr <= 85 and 14 <= rr <= 18:
+        return "Light Sleep"
+    elif 60 <= hr < 70 and 12 <= rr < 14:
+        return "Deep Sleep"
+    elif 60 <= hr <= 85 and 14 <= rr <= 16:
+        return "REM Sleep"
+    return "Unknown"
+
 if st.session_state.monitoring:
     while (datetime.now() - st.session_state.start_time).total_seconds() < 8 * 3600:
         # Simulated heart rate (HR) and respiratory rate (RR)
         new_hr = np.random.randint(60, 100)
         new_rr = np.random.randint(10, 20)
 
+        # Determine sleep stage
+        sleep_stage = determine_sleep_stage(new_hr, new_rr)
+
         # Store only the last 60 minutes of data (moving window)
         if len(st.session_state.hr_data) > 300:
             st.session_state.hr_data.pop(0)
             st.session_state.rr_data.pop(0)
             st.session_state.timestamps.pop(0)
+            st.session_state.sleep_stages.pop(0)
 
         # Append new data
         st.session_state.hr_data.append(new_hr)
         st.session_state.rr_data.append(new_rr)
         st.session_state.timestamps.append(datetime.now())
+        st.session_state.sleep_stages.append(sleep_stage)
 
-        # **Plot real-time graph**
+        # **Plot real-time Heart Rate & RR graph**
         fig, ax = plt.subplots(figsize=(8, 4))
         ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
         ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
@@ -88,6 +109,19 @@ if st.session_state.monitoring:
         ax.legend()
         ax.grid()
         chart_placeholder.pyplot(fig)
+
+        # **Plot Sleep Stage Graph**
+        stage_colors = {"Awake": "red", "Light Sleep": "yellow", "Deep Sleep": "blue", "REM Sleep": "purple"}
+        sleep_stage_values = [list(stage_colors.keys()).index(stage) for stage in st.session_state.sleep_stages]
+
+        fig2, ax2 = plt.subplots(figsize=(8, 4))
+        ax2.scatter(st.session_state.timestamps, sleep_stage_values, c=[stage_colors[s] for s in st.session_state.sleep_stages], label="Sleep Stage", s=20)
+        ax2.set_yticks(range(len(stage_colors)))
+        ax2.set_yticklabels(stage_colors.keys())
+        ax2.set_xlabel("Time")
+        ax2.set_ylabel("Sleep Stage")
+        ax2.grid()
+        sleep_stage_placeholder.pyplot(fig2)
 
         # **Health Alerts**
         alert_msg = None
@@ -121,3 +155,15 @@ if not st.session_state.monitoring and st.session_state.start_time:
         avg_hr = np.mean(st.session_state.hr_data)
         avg_rr = np.mean(st.session_state.rr_data)
         max_hr = np.max(st.session_state.hr_data)
+        min_hr = np.min(st.session_state.hr_data)
+        sleep_stage_counts = pd.Series(st.session_state.sleep_stages).value_counts()
+
+        # Display summary
+        report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
+        report_placeholder.write(f"**📅 Sleep Duration:** 8 hours")
+        report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
+        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min")
+        report_placeholder.write("### 🛏️ Sleep Stages Summary:")
+        report_placeholder.write(sleep_stage_counts.to_string())
+
+        st.success("✅ Sleep monitoring completed! Summary report generated.")
