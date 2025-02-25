@@ -15,7 +15,7 @@ class HealthMonitorAI(nn.Module):
         super(HealthMonitorAI, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)  # Output: Normal, Apnea, High BP
-        
+
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
         output = self.fc(lstm_out[:, -1, :])
@@ -78,6 +78,7 @@ def determine_sleep_stage(hr, rr):
         return "REM Sleep"
     return "Awake"  # Default to "Awake" if unknown stage
 
+# **Monitoring Process**
 while st.session_state.monitoring:
     # Simulated heart rate (HR) and respiratory rate (RR)
     new_hr = np.random.randint(60, 100)
@@ -110,70 +111,47 @@ while st.session_state.monitoring:
     chart_placeholder.pyplot(fig)
 
     # **Plot Sleep Stage Graph**
-    # **Plot Sleep Stage Graph (Fixed)**
-stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
-stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
+    stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
+    stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
 
-# Convert sleep stages to numeric values
-sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
+    # Convert sleep stages to numeric values
+    sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
 
-# **Fix Sleep Stage Line Plot**
-fig2, ax2 = plt.subplots(figsize=(10, 4))
-ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
+    # **Fix Sleep Stage Line Plot**
+    fig2, ax2 = plt.subplots(figsize=(10, 4))
+    ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
 
-# Color background by sleep stage
-for stage, value in stage_order.items():
-    ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
+    # Color background by sleep stage
+    for stage, value in stage_order.items():
+        ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
 
-ax2.set_yticks(list(stage_order.values()))
-ax2.set_yticklabels(list(stage_order.keys()))
-ax2.set_xlabel("Time")
-ax2.set_ylabel("Sleep Stage")
-ax2.legend()
-ax2.grid()
+    ax2.set_yticks(list(stage_order.values()))
+    ax2.set_yticklabels(list(stage_order.keys()))
+    ax2.set_xlabel("Time")
+    ax2.set_ylabel("Sleep Stage")
+    ax2.legend()
+    ax2.grid()
+    sleep_stage_placeholder.pyplot(fig2)
 
-sleep_stage_placeholder.pyplot(fig2)
+    # **Health Alerts**
+    alert_msg = None
+    if new_hr > 90:
+        alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
+    elif new_rr < 10:
+        alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
 
- # Ensure this runs only when monitoring is active
-if st.session_state.monitoring:
-    while (datetime.now() - st.session_state.start_time).total_seconds() < 8 * 3600:
-        # ✅ Define new_hr and new_rr before using them
-        new_hr = np.random.randint(60, 100)  # Simulated heart rate
-        new_rr = np.random.randint(10, 20)   # Simulated respiratory rate
+    if alert_msg:
+        st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
 
-        # Store only the last 60 minutes of data (moving window)
-        if len(st.session_state.hr_data) > 300:
-            st.session_state.hr_data.pop(0)
-            st.session_state.rr_data.pop(0)
-            st.session_state.timestamps.pop(0)
+    # **Show latest alert**
+    if st.session_state.alerts:
+        latest_alert = st.session_state.alerts[-1]
+        alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
+    else:
+        alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
 
-        # Append new data
-        st.session_state.hr_data.append(new_hr)
-        st.session_state.rr_data.append(new_rr)
-        st.session_state.timestamps.append(datetime.now())
-
-        # ✅ Ensure new_hr and new_rr are defined before this block
-        alert_msg = None
-        if new_hr > 90:
-            alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
-        elif new_rr < 10:
-            alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
-
-        if alert_msg:
-            st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
-
-        # **Show latest alert**
-        if st.session_state.alerts:
-            latest_alert = st.session_state.alerts[-1]
-            alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
-        else:
-            alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
-
-        # **Simulate real-time update** (Every 1 second)
-        time.sleep(1)
-
-    # Stop Monitoring after 8 Hours
-    st.session_state.monitoring = False
+    # **Simulate real-time update** (Every 1 second)
+    time.sleep(1)
 
 # =============================
 # 4. Sleep Report Summary (Anytime Monitoring Stops)
