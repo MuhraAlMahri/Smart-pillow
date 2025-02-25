@@ -134,22 +134,22 @@ ax2.grid()
 
 sleep_stage_placeholder.pyplot(fig2)
 
-    # **Health Alerts**
-    alert_msg = None
-    if new_hr > 90:
-        alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
-    elif new_rr < 10:
-        alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
+   # **Health Alerts**
+alert_msg = None
+if new_hr > 90:
+    alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
+elif new_rr < 10:
+    alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
 
-    if alert_msg:
-        st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
-    
-    # **Show latest alert**
-    if st.session_state.alerts:
-        latest_alert = st.session_state.alerts[-1]
-        alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
-    else:
-        alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
+if alert_msg:
+    st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
+
+# **Show latest alert**
+if st.session_state.alerts:
+    latest_alert = st.session_state.alerts[-1]
+    alert_placeholder.error(f"{latest_alert[1]} (Time: {latest_alert[0]})")
+else:
+    alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
 
     # **Simulate real-time update** (Every 1 second)
     time.sleep(1)
