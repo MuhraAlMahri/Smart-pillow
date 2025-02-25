@@ -15,7 +15,7 @@ class HealthMonitorAI(nn.Module):
         super(HealthMonitorAI, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)  # Output: Normal, Apnea, High BP
-
+        
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
         output = self.fc(lstm_out[:, -1, :])
@@ -64,75 +64,116 @@ alert_placeholder = st.empty()
 report_placeholder = st.empty()
 
 # =============================
-# 3. Real-Time Data Simulation (Moving Graph)
+# 3. Sleep Stage Transition Function (Improved)
 # =============================
-def determine_sleep_stage(last_stage, time_elapsed):
-    """Simulate a full sleep cycle in just 5 minutes for the demo"""
-    if time_elapsed < 1 * 60:  # First 1 min → Light Sleep
-        return "Light Sleep"
-    elif time_elapsed < 2.5 * 60:  # 1-2.5 min → Deep Sleep
-        return "Deep Sleep"
-    elif time_elapsed < 4 * 60:  # 2.5-4 min → REM Sleep
-        return "REM Sleep"
-    else:  # 4-5 min → Awake (cycle restarts)
-        return "Awake"
+import random
 
-# **Monitoring Process**
-while st.session_state.monitoring:
-    elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds()
+def determine_sleep_stage(prev_stage):
+    """Dynamically transition sleep stages for a natural cycle"""
+    transition_probs = {
+        "Awake": ["Light Sleep", "Awake"],
+        "Light Sleep": ["Deep Sleep", "REM Sleep", "Light Sleep"],
+        "Deep Sleep": ["REM Sleep", "Light Sleep"],
+        "REM Sleep": ["Awake", "Light Sleep"]
+    }
+    transition_weights = {
+        "Awake": [0.7, 0.3],
+        "Light Sleep": [0.5, 0.2, 0.3],
+        "Deep Sleep": [0.6, 0.4],
+        "REM Sleep": [0.4, 0.6]
+    }
+    return np.random.choice(transition_probs[prev_stage], p=transition_weights[prev_stage])
 
-    if elapsed_time >= 5 * 60:  # Stop after 5 minutes
-        st.session_state.monitoring = False
-        break
-
-    # Simulated heart rate (HR) and respiratory rate (RR)
-    new_hr = np.random.randint(60, 100)
-    new_rr = np.random.randint(10, 20)
-
-    # Determine sleep stage
-    sleep_stage = determine_sleep_stage(
-        st.session_state.sleep_stages[-1] if st.session_state.sleep_stages else "Awake",
-        elapsed_time
-    )
-
-    # Store data
-    st.session_state.hr_data.append(new_hr)
-    st.session_state.rr_data.append(new_rr)
-    st.session_state.timestamps.append(datetime.now())
-    st.session_state.sleep_stages.append(sleep_stage)
-
-    # Real-time graph updates...
-    time.sleep(1)  # 1 second = 1 minute of sleep
 # =============================
-# 4. Sleep Report Summary (Anytime Monitoring Stops)
+# 4. Real-Time Data Simulation (Fast 5-Minute Demo)
+# =============================
+if st.session_state.monitoring:
+    start_demo_time = time.time()  # Start tracking time for 5 min demo
+
+    while time.time() - start_demo_time < 300:  # Run for 5 minutes instead of 8 hours
+        # Simulated heart rate (HR) and respiratory rate (RR)
+        new_hr = np.random.randint(60, 100)
+        new_rr = np.random.randint(10, 20)
+
+        # Determine sleep stage
+        prev_stage = st.session_state.sleep_stages[-1] if st.session_state.sleep_stages else "Awake"
+        sleep_stage = determine_sleep_stage(prev_stage)
+
+        # Store only the last 60 minutes of data (moving window)
+        if len(st.session_state.hr_data) > 300:
+            st.session_state.hr_data.pop(0)
+            st.session_state.rr_data.pop(0)
+            st.session_state.timestamps.pop(0)
+            st.session_state.sleep_stages.pop(0)
+
+        # Append new data
+        st.session_state.hr_data.append(new_hr)
+        st.session_state.rr_data.append(new_rr)
+        st.session_state.timestamps.append(datetime.now())
+        st.session_state.sleep_stages.append(sleep_stage)
+
+        # **Plot Real-Time Heart Rate & RR Graph**
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(st.session_state.timestamps, st.session_state.hr_data, label="Heart Rate (BPM)", color="red", linewidth=2)
+        ax.plot(st.session_state.timestamps, st.session_state.rr_data, label="Respiratory Rate (Breaths/min)", color="blue", linewidth=2)
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Values")
+        ax.legend()
+        ax.grid()
+        chart_placeholder.pyplot(fig)
+
+        # **Plot Sleep Stage Graph**
+        stage_order = {"Awake": 0, "Light Sleep": 1, "Deep Sleep": 2, "REM Sleep": 3}
+        stage_colors = {0: "red", 1: "orange", 2: "blue", 3: "purple"}
+        sleep_stage_values = [stage_order[stage] for stage in st.session_state.sleep_stages]
+
+        fig2, ax2 = plt.subplots(figsize=(10, 4))
+        ax2.step(st.session_state.timestamps, sleep_stage_values, where="post", linewidth=2, color="black")
+        for stage, value in stage_order.items():
+            ax2.fill_between(st.session_state.timestamps, value - 0.5, value + 0.5, color=stage_colors[value], alpha=0.3, label=stage)
+        ax2.set_yticks(list(stage_order.values()))
+        ax2.set_yticklabels(list(stage_order.keys()))
+        ax2.set_xlabel("Time")
+        ax2.set_ylabel("Sleep Stage")
+        ax2.legend()
+        ax2.grid()
+        sleep_stage_placeholder.pyplot(fig2)
+
+        # **Health Alerts**
+        alert_msg = None
+        if new_hr > 90:
+            alert_msg = "⚠️ High Blood Pressure Detected! Consult a doctor."
+        elif new_rr < 10:
+            alert_msg = "⚠️ Possible Sleep Apnea Detected! Consider medical evaluation."
+
+        if alert_msg:
+            st.session_state.alerts.append((datetime.now().strftime("%H:%M:%S"), alert_msg))
+            alert_placeholder.error(f"{alert_msg} (Time: {datetime.now().strftime('%H:%M:%S')})")
+        else:
+            alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
+
+        # **Simulate real-time update** (Every 1 second)
+        time.sleep(1)
+
+    # **Stop Monitoring after 5 Minutes**
+    st.session_state.monitoring = False
+
+# =============================
+# 5. Sleep Report Summary (Anytime Monitoring Stops)
 # =============================
 if not st.session_state.monitoring and st.session_state.start_time:
     if st.session_state.hr_data:
-        elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds() / 3600  # Convert to hours
+        elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds() / 60  # Minutes
         avg_hr = np.mean(st.session_state.hr_data)
-        min_hr = np.min(st.session_state.hr_data)
-        max_hr = np.max(st.session_state.hr_data)
-        hr_variability = np.std(st.session_state.hr_data)  # Heart Rate Variability
-
         avg_rr = np.mean(st.session_state.rr_data)
-        min_rr = np.min(st.session_state.rr_data)
-        max_rr = np.max(st.session_state.rr_data)
+        sleep_stage_counts = pd.Series(st.session_state.sleep_stages).value_counts()
 
-        sleep_stage_counts = pd.Series(st.session_state.sleep_stages).value_counts(normalize=True) * 100  # Percentage
-
-        # Display summary
+        # Display Summary
         report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
-        report_placeholder.write(f"**📅 Sleep Duration:** {elapsed_time:.2f} hours")
-        report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
-        report_placeholder.write(f"**📊 Heart Rate Variability (HRV):** {hr_variability:.2f}")
-        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min (Min: {min_rr} | Max: {max_rr})")
-        report_placeholder.write("### 🛏️ Sleep Stages Breakdown:")
+        report_placeholder.write(f"**📅 Sleep Duration:** {elapsed_time:.1f} minutes")
+        report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM")
+        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min")
+        report_placeholder.write("### 🛏️ Sleep Stages Summary:")
         report_placeholder.write(sleep_stage_counts.to_string())
-
-        # Show health alerts if any
-        if st.session_state.alerts:
-            alert_df = pd.DataFrame(st.session_state.alerts, columns=["Time", "Alert"])
-            report_placeholder.write("### 🚨 Health Alerts During Sleep:")
-            report_placeholder.dataframe(alert_df)
 
         st.success("✅ Sleep monitoring completed! Summary report generated.")
