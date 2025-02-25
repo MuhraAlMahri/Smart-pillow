@@ -49,12 +49,10 @@ if st.button("🚀 Start Sleep Monitoring"):
     st.session_state.rr_data = []
     st.session_state.timestamps = []
     st.session_state.alerts = []
-    st.rerun()  # Forces app to refresh
 
 # **Stop Monitoring Button**
 if st.button("⏹️ Stop Monitoring"):
     st.session_state.monitoring = False
-    st.rerun()  # Refresh to display final report
 
 # **Real-Time Chart & Alerts**
 chart_placeholder = st.empty()
@@ -65,9 +63,7 @@ report_placeholder = st.empty()
 # 3. Real-Time Data Simulation (Moving Graph)
 # =============================
 if st.session_state.monitoring:
-    elapsed_time = (datetime.now() - st.session_state.start_time).total_seconds()
-
-    if elapsed_time < 8 * 3600:
+    while (datetime.now() - st.session_state.start_time).total_seconds() < 8 * 3600:
         # Simulated heart rate (HR) and respiratory rate (RR)
         new_hr = np.random.randint(60, 100)
         new_rr = np.random.randint(10, 20)
@@ -110,14 +106,11 @@ if st.session_state.monitoring:
         else:
             alert_placeholder.success("✅ Normal Sleep & Cardiovascular Health")
 
-        # **Wait 1 second before rerunning**
+        # **Simulate real-time update** (Every 1 second)
         time.sleep(1)
-        st.rerun()
 
-    else:
-        # **Stop Monitoring after 8 Hours**
-        st.session_state.monitoring = False
-        st.rerun()
+    # **Stop Monitoring after 8 Hours**
+    st.session_state.monitoring = False
 
 # =============================
 # 4. Sleep Report Summary (After 8 Hours)
@@ -127,22 +120,4 @@ if not st.session_state.monitoring and st.session_state.start_time:
         # Calculate statistics
         avg_hr = np.mean(st.session_state.hr_data)
         avg_rr = np.mean(st.session_state.rr_data)
-        max_hr = np.max(st.session_state.hr_data)
-        min_hr = np.min(st.session_state.hr_data)
-        max_rr = np.max(st.session_state.rr_data)
-        min_rr = np.min(st.session_state.rr_data)
-
-        # Create DataFrame for Alerts
-        alert_df = pd.DataFrame(st.session_state.alerts, columns=["Time", "Alert"])
-
-        # Display summary
-        report_placeholder.write("## 💤 Sleep & Blood Pressure Report")
-        report_placeholder.write(f"**📅 Sleep Duration:** 8 Hours")
-        report_placeholder.write(f"**❤️ Avg Heart Rate:** {avg_hr:.1f} BPM (Min: {min_hr} | Max: {max_hr})")
-        report_placeholder.write(f"**💨 Avg Respiratory Rate:** {avg_rr:.1f} Breaths/min (Min: {min_rr} | Max: {max_rr})")
-        
-        if not alert_df.empty:
-            report_placeholder.write("### 🚨 Health Alerts During Sleep:")
-            report_placeholder.dataframe(alert_df)
-
-        st.success("✅ Sleep monitoring completed! Summary report generated.")
+        max_hr = np.max(st.session)
